@@ -8,11 +8,12 @@ from models.model import LLM, Config
 import torch.nn.functional as F
 import json
 
-def step(model, optimizer, scheduler, train_loader, test_dataset,  device, epoch, path, best_loss):
+def step(model, optimizer, scheduler, train_loader, test_dataset,  device, epoch, path, best_loss, result_dict = None):
     model.train()
     total_acc = 0
     total_loss = 0
     sample_nb = 0
+    loss_for_n_steps = 0
 
     with tqdm(range(len(train_loader))) as pbar :
         for idx, (context,targets) in enumerate(train_loader):
@@ -29,30 +30,30 @@ def step(model, optimizer, scheduler, train_loader, test_dataset,  device, epoch
 
             optimizer.step()
             if idx % 200 == 0:
-                print(f'loss for step {idx} : {loss.item()}')
-                best_loss = test_for_n_steps(model, test_dataset, device, path, best_loss, epoch, 500)
+                print(f'loss for step {idx} : {loss_for_n_steps/200}')
+                
+                test_loss, best_loss = test_for_n_steps(model, test_dataset, device, path, best_loss, epoch, 200)
+                result_dict['steps'].append(idx)
+                result_dict['test_loss'].append(test_loss)
+                result_dict['train_loss'].append(loss_for_n_steps/200)
+                loss_for_n_steps = 0
 
                 # input = test_dataset.tokenizer('this is not the best of hyperbilious times, th')['input_ids']
-                input = test_dataset.encode("i am not thinking about it, the only thing that makes me feel good is")
+                input = test_dataset.encode(" ")
                 #input = input.split(' ')
                 input = torch.Tensor(input).type(torch.int32).to(device).unsqueeze(0)
-                output = model.generate(input, 100).squeeze(0).cpu()
+                output = model.generate(input, 500).squeeze(0).cpu()
                 decoded_output = test_dataset.decode(output)
 
                 if test_dataset.config.tokenizer_type == 'char_level' :
                     decoded_output = ''.join(decoded_output)
                 print(decoded_output)
                 # final_output = ""
-                # for token in decoded_output:
-                #     if token[0] == '#':
-                #         final_output += token[2:]
-                #     else : 
-                #         final_output += ' '
-                #         final_output += token
 
-
-                # print(final_output)
             if idx % 3000 == 0 :
+                #save to json result_dict
+                with open(path+'result_dict.json', 'w') as f:
+                    json.dump(result_dict, f, indent=2)
                 scheduler.step()
               
             total_acc += (logits.argmax(-1) == targets).sum().item()
@@ -60,6 +61,7 @@ def step(model, optimizer, scheduler, train_loader, test_dataset,  device, epoch
             
             sample_nb += B
             total_loss += loss.item()
+            loss_for_n_steps += loss.item()
 
 
     print(f'[TRAIN EPOCH {epoch}] Accuracy : {total_acc*100/(sample_nb*T)}% Train Loss : {total_loss/len(train_loader)}')
@@ -122,6 +124,12 @@ if __name__ == '__main__' :
         tokenizer_type = 'char_level',
         train_test_split = 0.9)
     
+    result_dict = {
+        'steps' : [],
+        'text_generated' : [],
+        'train_loss' : [],
+        'test_loss' : []
+    }
 
     train_dataset = ShakespeareDataset(LLM_config, 'train')
     test_dataset = ShakespeareDataset(LLM_config, 'test')

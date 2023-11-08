@@ -9,6 +9,7 @@ from models.model import Config
 class PreprocessData():
     def __init__(self, config : Config):
         self.to_lower = True 
+        self.char_token_bool = False
         self.tokenizer_type = config.tokenizer_type
         self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
         self.train_test_split = config.train_test_split
@@ -49,8 +50,10 @@ class PreprocessData():
                     scene_started = True
                 else :
                     
-                 
-                    entire_scene = '<CHAR'+str(len(all_chars))+'>'+' \n '+' \n '.join(entire_scene)+' \n '
+                    if self.char_token_bool : 
+                        entire_scene = '<CHAR'+str(len(all_chars))+'>'+' \n '+' \n '.join(entire_scene)+' \n '
+                    else :
+                        entire_scene = ' \n '.join(entire_scene)+' \n '
                     entire_scene = entire_scene.split(' ')
                     self.processed_corpus.append(entire_scene)
                     entire_scene = []
@@ -71,9 +74,14 @@ class PreprocessData():
             for corpus in [self.train_processed_corpus, self.test_processed_corpus]:
                 for scene in corpus :
                     for word in scene:
-                        if word[:5] == '<CHAR':
-                            if word not in vocab_chars:
-                                vocab_chars.add(word)
+                        if self.char_token_bool :
+                            if word[:5] == '<CHAR':
+                                if word not in vocab_chars:
+                                    vocab_chars.add(word)
+                            else :
+                                for char in word :
+                                    if char not in vocab_chars:
+                                        vocab_chars.add(char)
                         else :
                             for char in word :
                                 if char not in vocab_chars:
@@ -92,7 +100,7 @@ class PreprocessData():
             self.train_processed_encoded_corpus = []
             i=0
             while i < len(self.train_processed_corpus):
-                if self.train_processed_corpus[i] == '<' :
+                if self.train_processed_corpus[i] == '<' and self.char_token_bool :
 
                     if self.train_processed_corpus[i+7] == '>' :
                         self.train_processed_encoded_corpus.append(self.stoi[self.train_processed_corpus[i:i+8]])
@@ -101,7 +109,6 @@ class PreprocessData():
                         self.train_processed_encoded_corpus.append(self.stoi[self.train_processed_corpus[i:i+7]])
                         i+=7
                 else : 
-        
                     self.train_processed_encoded_corpus.append(self.stoi[self.train_processed_corpus[i]])
                     i+=1
 
@@ -112,7 +119,7 @@ class PreprocessData():
             j=0
             
             while j < len(self.test_processed_corpus):
-                if self.test_processed_corpus[j] == '<' :
+                if self.test_processed_corpus[j] == '<' and self.char_token_bool :
                     if self.test_processed_corpus[j+7] == '>' :
                         self.test_processed_encoded_corpus.append(self.stoi[self.test_processed_corpus[j:j+8]])
                         j+=8
