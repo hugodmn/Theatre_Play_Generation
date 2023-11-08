@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shakespeare Text Generator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Shakespearean Text Generator</h1>
+        <textarea id="prompt-input" rows="4" cols="50" placeholder="Enter your prompt here"></textarea><br>
+        <input type="range" id="token-slider" min="1" max="500" value="50">
+        <label for="token-slider" id="token-slider-label">Number of tokens to generate: 50</label><br>
+        <button id="generate-btn">Generate Text</button>
+        <div id="text-output">Your generated text will appear here...</div>
+    </div>
+    <script src="scripts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/onnxjs/dist/onnx.min.js"></script>
+</body>
+</html>

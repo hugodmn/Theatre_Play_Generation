@@ -2,74 +2,247 @@ import torch
 import torch.nn as nn
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
+from transformers import AutoTokenizer
+from models.model import Config
+
+
+class PreprocessData():
+    def __init__(self, config : Config):
+        self.to_lower = True 
+        self.tokenizer_type = config.tokenizer_type
+        self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        self.train_test_split = config.train_test_split
+
+
+    def tokenize(self, corpus : pd.DataFrame):
+        
+        self.processed_corpus = []
+
+        all_chars = set()
+        entire_scene = []
+        scene_started : bool = False
+
+        for i, row in corpus.iterrows():
+
+            
+            if isinstance(row['Player'],  str) == True :
+                if row['Player'] != last_player :
+                    if self.to_lower : 
+                        entire_scene.append(str(row['Player']).lower()+' :')
+                    else :
+                        entire_scene.append(str(row['Player'])+' :')
+                last_player = row['Player']
+            else : 
+                last_player = None
+
+                
+            if row['Player'] not in all_chars and isinstance(row['Player'],  str) == True:
+                all_chars.add(row['Player'])
+
+            if self.to_lower:
+                entire_scene.append(row['PlayerLine'].lower())
+            else : 
+                entire_scene.append(row['PlayerLine'])
+
+            if (row['PlayerLine'][0:5] == 'SCENE') or i == len(corpus) - 1:
+                if not scene_started :
+                    scene_started = True
+                else :
+                    
+                 
+                    entire_scene = '<CHAR'+str(len(all_chars))+'>'+' \n '+' \n '.join(entire_scene)+' \n '
+                    entire_scene = entire_scene.split(' ')
+                    self.processed_corpus.append(entire_scene)
+                    entire_scene = []
+                    all_chars = set()
+
+
+
+
+            self.train_processed_corpus = self.processed_corpus[:int(self.train_test_split*len(self.processed_corpus))]
+            self.test_processed_corpus = self.processed_corpus[int(self.train_test_split*len(self.processed_corpus)):]
+
+
+        if self.tokenizer_type == 'char_level' :
+
+            vocab_chars = set()
+
+
+            for corpus in [self.train_processed_corpus, self.test_processed_corpus]:
+                for scene in corpus :
+                    for word in scene:
+                        if word[:5] == '<CHAR':
+                            if word not in vocab_chars:
+                                vocab_chars.add(word)
+                        else :
+                            for char in word :
+                                if char not in vocab_chars:
+                                    vocab_chars.add(char)
+            #adding space to the vocab 
+            vocab_chars.add(' ')
+
+
+            self.vocab_size = len(sorted(vocab_chars))
+            self.stoi = {char: i for i, char in enumerate(sorted(vocab_chars))}
+            self.itos = {i: char for i, char in enumerate(sorted(vocab_chars))}
+
+            self.train_processed_corpus = [x for subset in self.train_processed_corpus for x in subset]
+            self.train_processed_corpus = ' '.join(self.train_processed_corpus)
+
+            self.train_processed_encoded_corpus = []
+            i=0
+            while i < len(self.train_processed_corpus):
+                if self.train_processed_corpus[i] == '<' :
+
+                    if self.train_processed_corpus[i+7] == '>' :
+                        self.train_processed_encoded_corpus.append(self.stoi[self.train_processed_corpus[i:i+8]])
+                        i+=8
+                    elif self.train_processed_corpus[i+6] == '>' :
+                        self.train_processed_encoded_corpus.append(self.stoi[self.train_processed_corpus[i:i+7]])
+                        i+=7
+                else : 
+        
+                    self.train_processed_encoded_corpus.append(self.stoi[self.train_processed_corpus[i]])
+                    i+=1
+
+            self.test_processed_corpus = [x for subset in self.test_processed_corpus for x in subset]
+            self.test_processed_corpus = ' '.join(self.test_processed_corpus)
+
+            self.test_processed_encoded_corpus = []
+            j=0
+            
+            while j < len(self.test_processed_corpus):
+                if self.test_processed_corpus[j] == '<' :
+                    if self.test_processed_corpus[j+7] == '>' :
+                        self.test_processed_encoded_corpus.append(self.stoi[self.test_processed_corpus[j:j+8]])
+                        j+=8
+
+                    elif self.test_processed_corpus[j+6] == '>' :
+                        self.test_processed_encoded_corpus.append(self.stoi[self.test_processed_corpus[j:j+7]])
+                        j+=7
+                else : 
+                    self.test_processed_encoded_corpus.append(self.stoi[self.test_processed_corpus[j]])
+                    j+=1
+                #print(j)
+
+            self.test_processed_corpus = self.test_processed_encoded_corpus
+            self.train_processed_corpus = self.train_processed_encoded_corpus
+  
+
+        elif self.tokenizer_type == 'word_level' :
+            vocab_chars = set()
+
+            for corpus in [self.train_processed_corpus, self.test_processed_corpus]:
+                for scene in corpus:
+                    #scene = scene.split(' ')
+                    for word in scene :
+                        if word not in vocab_chars:
+                            vocab_chars.add(word)
+                #vocab_chars.add('\n')
+
+
+            self.vocab_size = len(sorted(vocab_chars))
+            self.stoi = {char: i for i, char in enumerate(sorted(vocab_chars))}
+            self.itos = {i: char for i, char in enumerate(sorted(vocab_chars))}
+
+            self.train_processed_corpus = [x for subset in self.train_processed_corpus for x in subset]
+            self.train_processed_corpus = [self.stoi[char] for char in self.train_processed_corpus]
+            self.test_processed_corpus = [x for subset in self.test_processed_corpus for x in subset]
+            self.test_processed_corpus = [self.stoi[char] for char in self.test_processed_corpus]
+
+        elif self.tokenizer_type == 'bert_tokenizer' :
+
+
+            
+            self.train_processed_corpus = [x for subset in self.train_processed_corpus for x in subset]
+            self.train_processed_corpus = ''.join(self.train_processed_corpus)
+
+            self.test_processed_corpus = [x for subset in self.test_processed_corpus for x in subset]
+            self.test_processed_corpus = ''.join(self.test_processed_corpus)
+           
+            self.train_processed_corpus = self.tokenizer(self.train_processed_corpus, add_special_tokens=False).input_ids
+            self.test_processed_corpus = self.tokenizer(self.test_processed_corpus, add_special_tokens=False).input_ids
+
+            self.vocab_size = self.tokenizer.vocab_size
+
+
+        return self.train_processed_corpus, self.test_processed_corpus
+
+
+
 
 class ShakespeareDataset(Dataset):
-    def __init__(self, block_size : int, split : str ,  to_lower : bool = True):
+    def __init__(self, config : Config, split : str ):
         self.data = pd.read_csv('datasets/shakespeare-plays/Shakespeare_data.csv')
-        self.processed_corpus = []
-        self.block_size = block_size
-        
+        self.config = config
+        self.block_size = self.config.block_size
+        self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
-        for i, row in self.data.iterrows():
-            if to_lower:
-                self.processed_corpus.append(row['PlayerLine'].lower())
-            else : 
-                self.processed_corpus.append(row['PlayerLine'])
+
+        self.PreprocessData = PreprocessData(config)
+        self.train_processed_corpus, self.test_processed_corpus = self.PreprocessData.tokenize(self.data)
+        
+        self.itos = self.PreprocessData.itos
+        self.stoi = self.PreprocessData.stoi
         
         if split == 'train':
-            self.processed_corpus = self.processed_corpus[:int(0.9*len(self.processed_corpus))]
+            self.processed_corpus = self.train_processed_corpus
         elif split == 'test':
-            self.processed_corpus = self.processed_corpus[int(0.9*len(self.processed_corpus)):]
-
-        #Merge all the lines into one big string
-        self.processed_corpus = '\n'.join(self.processed_corpus)
-     
-        vocab_chars = set()
-        for line in self.processed_corpus:
-            for char in line:
-                if char not in vocab_chars:
-                    vocab_chars.add(char)
-        
-        self.vocab_size = len(sorted(vocab_chars))
-        self.token_embedding_table = nn.Embedding(self.vocab_size, self.vocab_size)
-        self.stoi = {char: i for i, char in enumerate(sorted(vocab_chars))}
-        self.itos = {i: char for i, char in enumerate(sorted(vocab_chars))}
-        # self.encode = lambda x: [stoi[char] for char in x]
-        # self.decode = lambda x: [itos[i] for i in x] 
+            self.processed_corpus = self.test_processed_corpus
 
     def decode(self, x):
         if isinstance(x, torch.Tensor):
             x = x.tolist()
-        return [self.itos[i] for i in x]
+
+        if self.config.tokenizer_type == 'bert_tokenizer' :
+
+            return self.tokenizer.convert_ids_to_tokens(x)
+        
+        elif self.config.tokenizer_type == 'char_level' :
+            return [self.itos[i] for i in x]
+        
+        elif self.config.tokenizer_type == 'word_level' :
+            return [self.itos[i] for i in x]
     
-    def encode(self, x):
-        return [int(self.stoi[char]) for char in x]
+    def encode(self, x, char_level_tokenizer : bool = False, word_level_tokenizer : bool = False):
+
+        if self.config.tokenizer_type == 'bert_tokenizer' :
+            return self.tokenizer(x).input_ids
+        
+        elif self.config.tokenizer_type == 'char_level' :
+
+            return [int(self.stoi[char]) for char in x]
+        
+        elif self.config.tokenizer_type == 'word_level' :
+
+            return [int(self.stoi[word]) for word in x.split(' ')]
 
     def __getitem__(self, idx):
         #print(self.encode(self.processed_corpus[idx : idx + self.block_size + 3]))
+
         context = self.processed_corpus[idx : idx + self.block_size ]
         prediction = self.processed_corpus[idx + 1 : idx + self.block_size + 1]
-        # print("context", context)
-        # print("prediction", prediction)
-        encoded_context = self.encode(context)
-        encoded_prediction = self.encode(prediction)
-
-        encoded_prediction = torch.Tensor(encoded_prediction).type(torch.int32)
-  
-        #encoded_prediction = self.token_embedding_table(encoded_prediction).squeeze(0)
-   
-        encoded_context = torch.Tensor(encoded_context).type(torch.int32)
     
-        
-        return encoded_context, encoded_prediction
+        prediction = torch.Tensor(prediction).type(torch.int32)
+        context = torch.Tensor(context).type(torch.int32)
+
+        return context, prediction
     
     def __len__(self):
+
         return len(self.processed_corpus) - self.block_size - 1 
     
 
 
 if __name__ == '__main__':
-    dataset = ShakespeareDataset(128, 'train')
+
+    config = Config(emb_size = 512, 
+                    head_nb = 4, 
+                    block_nb = 4, 
+                    block_size = 32, 
+                    tokenizer_type = 'word_level', 
+                    train_test_split = 0.8)
+    dataset = ShakespeareDataset('train', config)
     print(dataset[0])
-    for i,v in dataset.stoi.items():
-        print(i,v)
+    # for i,v in dataset.stoi.items():
+    #     print(i,v)
