@@ -154,7 +154,7 @@ Promise.all([
   loadModelData('word_level_tokenizer'),
   // Uncomment these if the corresponding JSON files are present and you want to load them
   // loadModelData('word_level_tokenizer'),
-  // loadModelData('bert_tokenizer')
+  loadModelData('bert_tokenizer')
 ]).then(() => {
   // Set the initial model and step
   const initialModel = 'char_level_tokenizer';
