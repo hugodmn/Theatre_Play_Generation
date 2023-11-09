@@ -133,6 +133,7 @@ document.getElementById('step-slider').addEventListener('input', function() {
 // Load all model data when the app starts
 Promise.all([
   loadModelData('char_level_tokenizer'),
+  loadModelData('word_level_tokenizer'),
   // Uncomment these if the corresponding JSON files are present and you want to load them
   // loadModelData('word_level_tokenizer'),
   // loadModelData('bert_tokenizer')
