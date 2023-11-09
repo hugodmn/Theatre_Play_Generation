@@ -4,6 +4,8 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 from models.model import Config
+import string
+from tqdm import tqdm 
 
 
 class PreprocessData():
@@ -14,6 +16,34 @@ class PreprocessData():
         self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
         self.train_test_split = config.train_test_split
 
+    def clean_a_bit(self, corpus):
+        clean_corpus = []
+        clean_scene = []
+        punct_after = ''
+        print(len(corpus))
+        with tqdm(range(len(corpus))) as pbar :
+            for scene in corpus : 
+                for word in scene : 
+                    if len(word)>1 :   
+                        if word[-1] in string.punctuation :
+                            if len(word)>2 :
+                                if word[-2] in string.punctuation and word[-3] in string.punctuation : 
+                                    word = word[:-2]
+                            punct_after = word[-1]
+                            word = word[:-1]
+                                
+            
+                        if word[-2:] == "'d" and len(word) != 2:
+                            word = word[:-2] + "ed"
+                    clean_scene.append(word)
+                    if punct_after != '':
+                        clean_scene.append(punct_after)
+                    punct_after = ''
+                clean_corpus.append(clean_scene)
+                pbar.update(1)
+        
+        return clean_corpus
+            
 
     def tokenize(self, corpus : pd.DataFrame):
         
@@ -62,9 +92,11 @@ class PreprocessData():
 
 
 
-            self.train_processed_corpus = self.processed_corpus[:int(self.train_test_split*len(self.processed_corpus))]
-            self.test_processed_corpus = self.processed_corpus[int(self.train_test_split*len(self.processed_corpus)):]
+        self.train_processed_corpus = self.processed_corpus[:int(self.train_test_split*len(self.processed_corpus))]
+        self.test_processed_corpus = self.processed_corpus[int(self.train_test_split*len(self.processed_corpus)):]
 
+        self.train_processed_corpus = self.clean_a_bit(self.train_processed_corpus)
+        self.test_processed_corpus = self.clean_a_bit(self.test_processed_corpus)
 
         if self.tokenizer_type == 'char_level' :
 
@@ -123,7 +155,7 @@ class PreprocessData():
                     if self.test_processed_corpus[j+7] == '>' :
                         self.test_processed_encoded_corpus.append(self.stoi[self.test_processed_corpus[j:j+8]])
                         j+=8
-
+          
                     elif self.test_processed_corpus[j+6] == '>' :
                         self.test_processed_encoded_corpus.append(self.stoi[self.test_processed_corpus[j:j+7]])
                         j+=7
@@ -134,10 +166,12 @@ class PreprocessData():
 
             self.test_processed_corpus = self.test_processed_encoded_corpus
             self.train_processed_corpus = self.train_processed_encoded_corpus
-  
+           
 
         elif self.tokenizer_type == 'word_level' :
             vocab_chars = set()
+
+            
 
             for corpus in [self.train_processed_corpus, self.test_processed_corpus]:
                 for scene in corpus:
@@ -152,10 +186,13 @@ class PreprocessData():
             self.stoi = {char: i for i, char in enumerate(sorted(vocab_chars))}
             self.itos = {i: char for i, char in enumerate(sorted(vocab_chars))}
 
-            self.train_processed_corpus = [x for subset in self.train_processed_corpus for x in subset]
-            self.train_processed_corpus = [self.stoi[char] for char in self.train_processed_corpus]
-            self.test_processed_corpus = [x for subset in self.test_processed_corpus for x in subset]
-            self.test_processed_corpus = [self.stoi[char] for char in self.test_processed_corpus]
+            self.train_processed_corpus_list = [x for subset in self.train_processed_corpus for x in subset]
+            self.train_processed_corpus = [self.stoi[x] for x in self.train_processed_corpus_list]
+
+
+            self.test_processed_corpus_list = [x for subset in self.test_processed_corpus for x in subset]
+            self.test_processed_corpus = [self.stoi[x] for x in self.test_processed_corpus_list]
+
 
         elif self.tokenizer_type == 'bert_tokenizer' :
 

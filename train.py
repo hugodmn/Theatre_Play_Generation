@@ -108,8 +108,8 @@ def test_for_n_steps(model, test_dataset, device, path, best_loss, epoch, n_step
 
 if __name__ == '__main__' : 
     epochs = 20 
-    device = 'mps'
-    print_all_vocab = True
+    device = 'cuda'
+    print_all_vocab = False
     block_size = 256 # -> context length 
 
     emb_size = 512
@@ -121,7 +121,7 @@ if __name__ == '__main__' :
         head_nb = head_nb,
         block_nb = block_nb,
         block_size = block_size,
-        tokenizer_type = 'char_level',
+        tokenizer_type = 'word_level',
         train_test_split = 0.9)
     
     result_dict = {
