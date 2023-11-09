@@ -25,6 +25,8 @@ class PreprocessData():
             for scene in corpus : 
                 for word in scene : 
                     if len(word)>1 :   
+                        if word[0] == "'" :
+                            word = word[1:]
                         if word[-1] in string.punctuation :
                             if len(word)>2 :
                                 if word[-2] in string.punctuation and word[-3] in string.punctuation : 
@@ -170,8 +172,7 @@ class PreprocessData():
 
         elif self.tokenizer_type == 'word_level' :
             vocab_chars = set()
-
-            
+       
 
             for corpus in [self.train_processed_corpus, self.test_processed_corpus]:
                 for scene in corpus:

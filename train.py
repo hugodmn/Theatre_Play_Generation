@@ -27,15 +27,16 @@ def step(model, optimizer, scheduler, train_loader, test_dataset,  device, epoch
 
             loss = F.cross_entropy(logits, targets)
             loss.backward()
-
+            loss_for_n_steps += loss.item()
             optimizer.step()
-            if idx % 200 == 0:
+            if idx % 200 == 0 and idx != 0:
                 print(f'loss for step {idx} : {loss_for_n_steps/200}')
                 
                 test_loss, best_loss = test_for_n_steps(model, test_dataset, device, path, best_loss, epoch, 200)
                 result_dict['steps'].append(idx)
                 result_dict['test_loss'].append(test_loss)
                 result_dict['train_loss'].append(loss_for_n_steps/200)
+                
                 loss_for_n_steps = 0
 
                 # input = test_dataset.tokenizer('this is not the best of hyperbilious times, th')['input_ids']
@@ -47,10 +48,13 @@ def step(model, optimizer, scheduler, train_loader, test_dataset,  device, epoch
 
                 if test_dataset.config.tokenizer_type == 'char_level' :
                     decoded_output = ''.join(decoded_output)
+                elif test_dataset.config.tokenizer_type == 'word_level' :
+                    decoded_output = ' '.join(decoded_output)
+                result_dict['text_generated'].append(decoded_output)
                 print(decoded_output)
                 # final_output = ""
 
-            if idx % 3000 == 0 :
+            if idx % 1000 == 0 :
                 #save to json result_dict
                 with open(path+'result_dict.json', 'w') as f:
                     json.dump(result_dict, f, indent=2)
@@ -61,7 +65,7 @@ def step(model, optimizer, scheduler, train_loader, test_dataset,  device, epoch
             
             sample_nb += B
             total_loss += loss.item()
-            loss_for_n_steps += loss.item()
+            
 
 
     print(f'[TRAIN EPOCH {epoch}] Accuracy : {total_acc*100/(sample_nb*T)}% Train Loss : {total_loss/len(train_loader)}')
@@ -102,15 +106,15 @@ def test_for_n_steps(model, test_dataset, device, path, best_loss, epoch, n_step
                 best_loss = total_loss_test/n_steps
                 torch.save(model.state_dict(), path+'model_[T:'+str(model.config.tokenizer_type)+'].pt')
         print(f'[TEST EPOCH {epoch}] Accuracy : {total_acc_test*100/(sample_nb_test*T)}% Test Loss : {total_loss_test/n_steps} Best Loss : {best_loss}')
-        return best_loss
+        return total_loss_test/n_steps, best_loss
     
 
 
 if __name__ == '__main__' : 
     epochs = 20 
-    device = 'cuda'
-    print_all_vocab = False
-    block_size = 256 # -> context length 
+    device = 'mps'
+    print_all_vocab = True
+    block_size = 64 # -> context length : char : 256, word : 64
 
     emb_size = 512
     head_nb = 4
@@ -176,5 +180,5 @@ if __name__ == '__main__' :
     
     print('---------------------Starting training---------------------')
     for epoch in range(epochs):
-        step(model, optimizer, scheduler, train_loader, test_dataset, device, epoch, path, best_loss = 1000)
+        step(model, optimizer, scheduler, train_loader, test_dataset, device, epoch, path, best_loss = 1000, result_dict=result_dict)
         #best_loss = test(model, test_loader, device, best_loss, epoch)

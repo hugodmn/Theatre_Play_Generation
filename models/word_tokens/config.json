@@ -1,12 +1,12 @@
 {
-  "vocab_size": 51,
+  "vocab_size": 29372,
   "emb_size": 512,
   "head_nb": 4,
   "block_nb": 6,
-  "block_size": 256,
+  "block_size": 64,
   "head_size": 128,
   "attn_dropout": 0.1,
   "multi_attn_dropout": 0.1,
-  "tokenizer_type": "char_level",
+  "tokenizer_type": "word_level",
   "train_test_split": 0.9
 }
