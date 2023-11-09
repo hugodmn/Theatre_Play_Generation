@@ -44,11 +44,16 @@ def step(model, optimizer, scheduler, train_loader, test_dataset,  device, epoch
                 #input = input.split(' ')
                 input = torch.Tensor(input).type(torch.int32).to(device).unsqueeze(0)
                 output = model.generate(input, 500).squeeze(0).cpu()
-                decoded_output = test_dataset.decode(output)
+                
+
+                if test_dataset.config.tokenizer_type == 'bert_tokenizer' :
+                    decoded_output = test_dataset.tokenizer.decode(output)
 
                 if test_dataset.config.tokenizer_type == 'char_level' :
+                    decoded_output = test_dataset.decode(output)
                     decoded_output = ''.join(decoded_output)
                 elif test_dataset.config.tokenizer_type == 'word_level' :
+                    decoded_output = test_dataset.decode(output)
                     decoded_output = ' '.join(decoded_output)
                 result_dict['text_generated'].append(decoded_output)
                 print(decoded_output)
@@ -113,7 +118,7 @@ def test_for_n_steps(model, test_dataset, device, path, best_loss, epoch, n_step
 if __name__ == '__main__' : 
     epochs = 20 
     device = 'mps'
-    print_all_vocab = True
+    print_all_vocab = False
     block_size = 64 # -> context length : char : 256, word : 64
 
     emb_size = 512
@@ -125,7 +130,7 @@ if __name__ == '__main__' :
         head_nb = head_nb,
         block_nb = block_nb,
         block_size = block_size,
-        tokenizer_type = 'word_level',
+        tokenizer_type = 'bert_tokenizer',
         train_test_split = 0.9)
     
     result_dict = {
@@ -141,7 +146,7 @@ if __name__ == '__main__' :
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=True)
 
-    vocab_size = len(train_dataset.stoi)
+    vocab_size = train_dataset.tokenizer.vocab_size#len(train_dataset.stoi)
     LLM_config.vocab_size = vocab_size
     best_loss = 10000
     print(f'Vocab size : {vocab_size}')
@@ -171,11 +176,12 @@ if __name__ == '__main__' :
     with open(path+'config.json', 'w') as f:
         json.dump(LLM_config.__dict__, f, indent=2)
 
-    with open(path+'stio.json', 'w') as f:
-        json.dump(train_dataset.stoi, f, indent=2)
+    if LLM_config.tokenizer_type != 'bert_tokenizer' :
+        with open(path+'stio.json', 'w') as f:
+            json.dump(train_dataset.stoi, f, indent=2)
 
-    with open(path+'itos.json', 'w') as f:
-        json.dump(train_dataset.itos, f, indent=2)
+        with open(path+'itos.json', 'w') as f:
+            json.dump(train_dataset.itos, f, indent=2)
 
     
     print('---------------------Starting training---------------------')

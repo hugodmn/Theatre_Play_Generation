@@ -44,11 +44,27 @@ function updateOutput(model, step) {
 function updateChart(modelDataEntry, stepIndex) {
   const ctx = document.getElementById('lossChart').getContext('2d');
 
+  const onPointClick = (event, elements) => {
+    if (elements.length > 0) {
+      const firstPoint = elements[0];
+      const label = lossChart.data.labels[firstPoint.index];
+      document.getElementById('step-slider').value = label;
+      document.getElementById('step-value').textContent = label;
+      updateOutput(document.getElementById('model-selector').value, label);
+      highlightSelectedPoint(modelData[document.getElementById('model-selector').value], label); // Call to update the point highlight
+    }
+  };
+
+
+
+
+
   // If the chart already exists, update its data
   if (lossChart) {
     lossChart.data.labels = modelDataEntry.steps; // All the steps you have
     lossChart.data.datasets[0].data = modelDataEntry.train_loss;
     lossChart.data.datasets[1].data = modelDataEntry.test_loss;
+    lossChart.options.onClick = onPointClick; // Attach the click event handler
     lossChart.update();
   } else {
     // Create a new chart
@@ -72,6 +88,7 @@ function updateChart(modelDataEntry, stepIndex) {
         ]
       },
       options: {
+        onClick: onPointClick, // Attach the click event handler
         scales: {
           x: {
             beginAtZero: true
@@ -128,6 +145,7 @@ document.getElementById('step-slider').addEventListener('input', function() {
   const selectedModel = document.getElementById('model-selector').value;
   updateOutput(selectedModel, selectedStep);
   updateChart(modelData[selectedModel], modelData[selectedModel].steps.indexOf(selectedStep));
+  highlightSelectedPoint(modelData[selectedModel], selectedStep); // Call to update the point highlight
 });
 
 // Load all model data when the app starts
@@ -138,14 +156,20 @@ Promise.all([
   // loadModelData('word_level_tokenizer'),
   // loadModelData('bert_tokenizer')
 ]).then(() => {
-  // Data is now loaded, you can initialize the app or UI with the data
+  // Set the initial model and step
   const initialModel = 'char_level_tokenizer';
-  const initialStep = modelData[initialModel].steps[0];
-  document.getElementById('step-slider').max = Math.max(...modelData[initialModel].steps);
-  document.getElementById('step-slider').value = initialStep;
-  document.getElementById('step-value').textContent = initialStep;
-  updateOutput(initialModel, initialStep);
-  updateChart(modelData[initialModel], 0);
+  const initialStep = 200; // Set the default step to 200
+  if (modelData[initialModel] && modelData[initialModel].steps.includes(initialStep)) {
+    // Set the slider max and value
+    document.getElementById('step-slider').max = Math.max(...modelData[initialModel].steps);
+    document.getElementById('step-slider').value = initialStep;
+    document.getElementById('step-value').textContent = initialStep;
+    // Update the output and chart for the initial step
+    updateOutput(initialModel, initialStep);
+    updateChart(modelData[initialModel], modelData[initialModel].steps.indexOf(initialStep));
+  } else {
+    console.error('Initial step data is not available');
+  }
 }).catch(error => {
   console.error('Error loading model data:', error);
 });

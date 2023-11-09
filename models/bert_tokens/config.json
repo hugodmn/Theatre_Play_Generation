@@ -1,5 +1,5 @@
 {
-  "vocab_size": 28953,
+  "vocab_size": 30522,
   "emb_size": 512,
   "head_nb": 4,
   "block_nb": 6,
@@ -7,6 +7,6 @@
   "head_size": 128,
   "attn_dropout": 0.1,
   "multi_attn_dropout": 0.1,
-  "tokenizer_type": "word_level",
+  "tokenizer_type": "bert_tokenizer",
   "train_test_split": 0.9
 }

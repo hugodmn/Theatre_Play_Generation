@@ -47,7 +47,7 @@ class PreprocessData():
         return clean_corpus
             
 
-    def tokenize(self, corpus : pd.DataFrame):
+    def tokenize(self, corpus : pd.DataFrame, split : str):
         
         self.processed_corpus = []
 
@@ -93,12 +93,15 @@ class PreprocessData():
 
 
 
+        if split == 'train':
 
-        self.train_processed_corpus = self.processed_corpus[:int(self.train_test_split*len(self.processed_corpus))]
-        self.test_processed_corpus = self.processed_corpus[int(self.train_test_split*len(self.processed_corpus)):]
+            self.processed_corpus = self.processed_corpus[:int(self.train_test_split*len(self.processed_corpus))]
+            self.processed_corpus = self.clean_a_bit(self.processed_corpus)
+        
+        elif split == 'test':
+            self.processed_corpus = self.processed_corpus[int(self.train_test_split*len(self.processed_corpus)):]
+            self.processed_corpus = self.clean_a_bit(self.processed_corpus)
 
-        self.train_processed_corpus = self.clean_a_bit(self.train_processed_corpus)
-        self.test_processed_corpus = self.clean_a_bit(self.test_processed_corpus)
 
         if self.tokenizer_type == 'char_level' :
 
@@ -168,7 +171,11 @@ class PreprocessData():
 
             self.test_processed_corpus = self.test_processed_encoded_corpus
             self.train_processed_corpus = self.train_processed_encoded_corpus
-           
+
+            if split == 'train':
+                self.processed_corpus = self.train_processed_corpus
+            elif split == 'test':
+                self.processed_corpus = self.test_processed_corpus           
 
         elif self.tokenizer_type == 'word_level' :
             vocab_chars = set()
@@ -194,24 +201,44 @@ class PreprocessData():
             self.test_processed_corpus_list = [x for subset in self.test_processed_corpus for x in subset]
             self.test_processed_corpus = [self.stoi[x] for x in self.test_processed_corpus_list]
 
+            if split == 'train':
+                self.processed_corpus = self.train_processed_corpus
+            elif split == 'test':
+                self.processed_corpus = self.test_processed_corpus
+
 
         elif self.tokenizer_type == 'bert_tokenizer' :
 
+            # if split == 'train':
+            self.tokenized_corpus = []
+            print('Tokenizing the train corpus')
+            with tqdm(range(len(self.processed_corpus))) as pbar:
+                for scene in self.processed_corpus :
+                    tokenized_scene = self.tokenizer(' '.join(scene), add_special_tokens=False).input_ids
+                    self.tokenized_corpus.append(tokenized_scene)
+                    pbar.update(1)
+                
+            self.processed_corpus = [x for scene in self.tokenized_corpus for x in scene]
+            print('Done tokenizing the train corpus')
 
-            
-            self.train_processed_corpus = [x for subset in self.train_processed_corpus for x in subset]
-            self.train_processed_corpus = ''.join(self.train_processed_corpus)
 
-            self.test_processed_corpus = [x for subset in self.test_processed_corpus for x in subset]
-            self.test_processed_corpus = ''.join(self.test_processed_corpus)
-           
-            self.train_processed_corpus = self.tokenizer(self.train_processed_corpus, add_special_tokens=False).input_ids
-            self.test_processed_corpus = self.tokenizer(self.test_processed_corpus, add_special_tokens=False).input_ids
+            # elif split == 'test' :
+            #     self.test_tokenized_corpus = []
+            #     print('Tokenizing the test corpus')
+            #     with tqdm(range(len(self.test_processed_corpus))) as pbar:
+            #         for scene in self.test_processed_corpus :
+            #             test_tokenized_scene = self.tokenizer(' '.join(scene), add_special_tokens=False).input_ids
+            #             self.test_tokenized_corpus.append(test_tokenized_scene)
+            #             pbar.update(1)
+
+            #     self.test_processed_corpus = [x for scene in self.test_tokenized_corpus for x in scene]
+            #     print('Done tokenizing the test corpus')
+            #     self.processed_corpus = self.test_processed_corpus
 
             self.vocab_size = self.tokenizer.vocab_size
 
 
-        return self.train_processed_corpus, self.test_processed_corpus
+        return self.processed_corpus
 
 
 
@@ -225,15 +252,12 @@ class ShakespeareDataset(Dataset):
 
 
         self.PreprocessData = PreprocessData(config)
-        self.train_processed_corpus, self.test_processed_corpus = self.PreprocessData.tokenize(self.data)
+        self.processed_corpus = self.PreprocessData.tokenize(self.data, split)
         
-        self.itos = self.PreprocessData.itos
-        self.stoi = self.PreprocessData.stoi
+        if self.config.tokenizer_type != 'bert_tokenizer' :
+            self.itos = self.PreprocessData.itos
+            self.stoi = self.PreprocessData.stoi
         
-        if split == 'train':
-            self.processed_corpus = self.train_processed_corpus
-        elif split == 'test':
-            self.processed_corpus = self.test_processed_corpus
 
     def decode(self, x):
         if isinstance(x, torch.Tensor):
