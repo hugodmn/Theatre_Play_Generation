@@ -161,7 +161,7 @@ Promise.all([
   const initialStep = 200; // Set the default step to 200
   if (modelData[initialModel] && modelData[initialModel].steps.includes(initialStep)) {
     // Set the slider max and value
-    document.getElementById('step-slider').max = Math.max(...modelData[initialModel].steps);
+    document.getElementById('step-slider').max = 6000;
     document.getElementById('step-slider').value = initialStep;
     document.getElementById('step-value').textContent = initialStep;
     // Update the output and chart for the initial step

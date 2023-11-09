@@ -47,7 +47,7 @@ def step(model, optimizer, scheduler, train_loader, test_dataset,  device, epoch
                 
 
                 if test_dataset.config.tokenizer_type == 'bert_tokenizer' :
-                    decoded_output = test_dataset.tokenizer.decode(output)
+                    decoded_output = test_dataset.tokenizer.decode(output, skip_special_tokens=True)
 
                 if test_dataset.config.tokenizer_type == 'char_level' :
                     decoded_output = test_dataset.decode(output)
